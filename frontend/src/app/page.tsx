@@ -195,20 +195,20 @@ function TalkUI() {
         )}
       </div>
 
-      <a
-        href="/metrics"
+      <div
         style={{
           position: "absolute",
           top: 24,
           right: 24,
-          color: "#8C5A3C",
-          fontSize: 14,
-          fontWeight: 600,
-          textDecoration: "none",
         }}
       >
-        Metrics
-      </a>
+        <a
+          href="/metrics"
+          style={{ color: "#8C5A3C", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+        >
+          Metrics
+        </a>
+      </div>
 
       {error && (
         <p
