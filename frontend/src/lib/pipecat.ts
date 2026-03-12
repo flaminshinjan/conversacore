@@ -9,6 +9,18 @@ import {
 const GATEWAY_URL =
   process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:8000";
 
+const USER_ID_KEY = "conversacore_user_id";
+
+function getOrCreateUserId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem(USER_ID_KEY);
+  if (!id) {
+    id = `user_${crypto.randomUUID().replace(/-/g, "")}`;
+    localStorage.setItem(USER_ID_KEY, id);
+  }
+  return id;
+}
+
 /**
  * WebSocket transport that returns false for isCamEnabled/isSharingScreen
  * without logging errors (WebSocket transport doesn't support camera/screen share).
@@ -23,10 +35,11 @@ class VoiceOnlyWebSocketTransport extends WebSocketTransport {
 }
 
 export async function getToken(): Promise<string> {
+  const user_id = getOrCreateUserId();
   const res = await fetch(`${GATEWAY_URL}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ user_id }),
   });
   if (!res.ok) throw new Error("Failed to get token");
   const data = await res.json();

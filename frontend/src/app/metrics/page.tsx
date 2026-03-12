@@ -148,6 +148,8 @@ export default function MetricsPage() {
         minHeight: "100dvh",
         background: "#FDF9F5",
         padding: 24,
+        maxWidth: 1200,
+        margin: "0 auto",
       }}
     >
       <a
@@ -157,7 +159,7 @@ export default function MetricsPage() {
           textDecoration: "none",
           fontWeight: 600,
           fontSize: 14,
-          marginBottom: 24,
+          marginBottom: 20,
           display: "inline-block",
         }}
       >
@@ -167,9 +169,9 @@ export default function MetricsPage() {
       <h1
         style={{
           color: "#4B2E2B",
-          fontSize: 24,
+          fontSize: 28,
           fontWeight: 700,
-          marginBottom: 24,
+          marginBottom: 28,
         }}
       >
         Metrics & cost
@@ -193,74 +195,95 @@ export default function MetricsPage() {
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          maxWidth: 480,
+          flexDirection: "row",
+          gap: 24,
+          alignItems: "flex-start",
+          flexWrap: "wrap",
         }}
       >
-        <MetricRow
-          label="Active connections"
-          value={data?.wsConnectionsActive ?? 0}
-          sub="WebSocket"
-        />
-        <MetricRow
-          label="Sessions completed"
-          value={data?.sessionTeardowns ?? 0}
-        />
-        <MetricRow
-          label="Avg session duration"
-          value={`${avgDuration}s`}
-        />
-        <MetricRow
-          label="Concurrency rejections"
-          value={data?.concurrencyRejections ?? 0}
-          sub="cap exceeded"
-        />
-        <MetricRow
-          label="Quota rejections"
-          value={data?.quotaRejections ?? 0}
-        />
-        <MetricRow
-          label="Estimated cost"
-          value={`$${(data?.estimatedCostUsd ?? 0).toFixed(4)}`}
-          sub="USD total"
-        />
-      </div>
+        {/* Left: Metrics */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            minWidth: 280,
+            maxWidth: 360,
+            flex: "1 1 280px",
+          }}
+        >
+          <MetricRow
+            label="Active connections"
+            value={data?.wsConnectionsActive ?? 0}
+            sub="WebSocket"
+          />
+          <MetricRow
+            label="Sessions completed"
+            value={data?.sessionTeardowns ?? 0}
+          />
+          <MetricRow
+            label="Avg session duration"
+            value={`${avgDuration}s`}
+          />
+          <MetricRow
+            label="Concurrency rejections"
+            value={data?.concurrencyRejections ?? 0}
+            sub="cap exceeded"
+          />
+          <MetricRow
+            label="Quota rejections"
+            value={data?.quotaRejections ?? 0}
+          />
+          <MetricRow
+            label="Estimated cost"
+            value={`$${(data?.estimatedCostUsd ?? 0).toFixed(4)}`}
+            sub="USD total"
+          />
+        </div>
 
-      {data?.durationBuckets && data.durationBuckets.length > 0 && (() => {
-        const buckets = data.durationBuckets;
-        const incremental: { label: string; count: number }[] = [];
-        let prevCount = 0;
-        let prevLe = "0";
-        for (let i = 0; i < buckets.length; i++) {
-          const c = buckets[i].count;
-          const le = buckets[i].le;
-          const label =
-            le === "+Inf" ? `>${prevLe}s` : prevLe === "0" ? `0–${le}s` : `${prevLe}–${le}s`;
-          incremental.push({ label, count: Math.max(0, c - prevCount) });
-          prevCount = c;
-          prevLe = le === "+Inf" ? prevLe : le;
-        }
-        const maxCount = Math.max(1, ...incremental.map((x) => x.count));
-        return (
-          <div style={{ marginTop: 24, maxWidth: 480 }}>
-            <h3 style={{ color: "#4B2E2B", fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-              Session duration histogram
-            </h3>
+        {/* Right: Histogram */}
+        {data?.durationBuckets && data.durationBuckets.length > 0 && (() => {
+          const buckets = data.durationBuckets;
+          const incremental: { label: string; count: number }[] = [];
+          let prevCount = 0;
+          let prevLe = "0";
+          for (let i = 0; i < buckets.length; i++) {
+            const c = buckets[i].count;
+            const le = buckets[i].le;
+            const label =
+              le === "+Inf" ? `>${prevLe}s` : prevLe === "0" ? `0–${le}s` : `${prevLe}–${le}s`;
+            incremental.push({ label, count: Math.max(0, c - prevCount) });
+            prevCount = c;
+            prevLe = le === "+Inf" ? prevLe : le;
+          }
+          const maxCount = Math.max(1, ...incremental.map((x) => x.count));
+          return (
             <div
               style={{
+                flex: "1 1 400px",
+                minWidth: 320,
                 background: "#FFF8F0",
-                padding: 20,
+                padding: 24,
                 borderRadius: 12,
                 border: "1px solid rgba(140, 90, 60, 0.15)",
               }}
             >
+              <h3
+                style={{
+                  color: "#4B2E2B",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  marginBottom: 20,
+                }}
+              >
+                Session duration histogram
+              </h3>
               <div
                 style={{
                   display: "flex",
                   alignItems: "flex-end",
-                  gap: 8,
-                  height: 120,
+                  gap: 10,
+                  height: 160,
                 }}
               >
                 {incremental.map((b, i) => (
@@ -271,13 +294,13 @@ export default function MetricsPage() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 6,
+                      gap: 8,
                     }}
                   >
                     <div
                       style={{
                         width: "100%",
-                        height: 80,
+                        height: 110,
                         display: "flex",
                         alignItems: "flex-end",
                         justifyContent: "center",
@@ -285,12 +308,13 @@ export default function MetricsPage() {
                     >
                       <div
                         style={{
-                          width: "80%",
-                          minHeight: b.count > 0 ? 6 : 0,
-                          height: `${Math.max(b.count > 0 ? 6 : 0, (b.count / maxCount) * 80)}px`,
-                          background: "#8C5A3C",
-                          borderRadius: "4px 4px 0 0",
+                          width: "85%",
+                          minHeight: b.count > 0 ? 8 : 0,
+                          height: `${Math.max(b.count > 0 ? 8 : 0, (b.count / maxCount) * 110)}px`,
+                          background: "linear-gradient(180deg, #A67B5B 0%, #8C5A3C 100%)",
+                          borderRadius: "6px 6px 0 0",
                           transition: "height 0.3s ease",
+                          boxShadow: "0 1px 3px rgba(140, 90, 60, 0.2)",
                         }}
                         title={`${b.label}: ${b.count}`}
                       />
@@ -298,16 +322,16 @@ export default function MetricsPage() {
                     <span style={{ fontSize: 11, color: "#8C5A3C", fontWeight: 600 }}>
                       {b.label}
                     </span>
-                    <span style={{ fontSize: 12, color: "#4B2E2B", fontWeight: 600 }}>
+                    <span style={{ fontSize: 13, color: "#4B2E2B", fontWeight: 600 }}>
                       {b.count}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </div>
 
       <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
         <a
