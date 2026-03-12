@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    env_file:
+      - ./voice-gateway/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}

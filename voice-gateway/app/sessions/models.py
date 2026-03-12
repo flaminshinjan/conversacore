@@ -1,7 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from fastapi import WebSocket
+
+from app.usage.tracker import UsageTracker
 
 
 class SessionState(str, Enum):
@@ -16,3 +18,4 @@ class VoiceSession:
     user_id: str
     websocket: WebSocket
     started_at: float
+    usage: UsageTracker = field(default_factory=UsageTracker)

@@ -131,6 +131,7 @@ function TalkUI() {
         justifyContent: "center",
         background: "#FDF9F5",
         padding: 24,
+        position: "relative",
       }}
     >
       <div
@@ -193,6 +194,21 @@ function TalkUI() {
           </button>
         )}
       </div>
+
+      <a
+        href="/metrics"
+        style={{
+          position: "absolute",
+          top: 24,
+          right: 24,
+          color: "#8C5A3C",
+          fontSize: 14,
+          fontWeight: 600,
+          textDecoration: "none",
+        }}
+      >
+        Metrics
+      </a>
 
       {error && (
         <p

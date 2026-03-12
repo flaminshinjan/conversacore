@@ -40,9 +40,10 @@ uv run uvicorn app.main:app --reload --port 8000
 | `/health` | GET | Liveness |
 | `/ready` | GET | Readiness (Redis check) |
 
-## Concurrency
+## Concurrency & Quotas
 
-Max 2 active calls per user (configurable via `CONCURRENCY_CAP_PER_USER`).
+- **Concurrency**: Max 2 active calls per user (`CONCURRENCY_CAP_PER_USER`).
+- **Usage quotas** (per user per day): STT 30 min, LLM 100k tokens, TTS 250k chars. Exceeding triggers WebSocket close 4001 `policy_violation: quota_exceeded`.
 
 ## Environment
 
@@ -365,7 +366,33 @@ conversacore/
 
 ---
 
-## 14. Scaling to 5,000+ Calls
+## 14. Circuit-Breaker Logic for Upstream AI Failures
+
+To handle STT, LLM, or TTS provider failures gracefully:
+
+- **Timeout handling**: Configure strict timeouts on WebSocket connections to Deepgram, OpenAI, and Cartesia. Fail fast if a provider does not respond.
+- **Graceful degradation**: On repeated provider errors, log and close the session with a clear reason (e.g. `server_error`) instead of retrying indefinitely.
+- **Implementation path**: Add a thin wrapper or middleware around each Pipecat service that tracks consecutive failures per provider. After a threshold (e.g. 5 failures in 60s), open the circuit and reject new sessions until a cooldown passes. Use `app/providers/circuit_breaker.py` for the logic; wire it into the pipeline factory.
+- **Monitoring**: Expose `provider_errors_total` and `circuit_open_seconds` metrics for observability.
+
+---
+
+## 15. JWT and Redis Optimization Techniques
+
+Techniques used to minimize hot-path overhead during JWT and Redis checks:
+
+- **JWT**:
+  - Validate signature and expiry in a single pass. Use `HS256` for low CPU; avoid redundant decode.
+  - Cache decoded payload by token (short TTL, e.g. 60s) to avoid repeated crypto work for the same token in long sessions.
+- **Redis**:
+  - Use connection pooling (`redis.asyncio.ConnectionPool`) to avoid per-request connect overhead.
+  - Lua scripts (`admit_session`, `check_quota`, `add_usage`) keep quota and concurrency logic atomic and reduce round-trips.
+  - Quota keys use daily TTL (`EXPIRE`) so expired keys are auto-cleaned; no extra maintenance tasks.
+- **Admission path**: One Redis round-trip for quota check + one for concurrency admit; teardown adds one more for usage. Avoid extra `GET`/`SET` calls on the hot path.
+
+---
+
+## 16. Scaling to 5,000+ Calls
 
 - L4/L7 LB in front of gateway
 - Sticky routing by session_id
@@ -376,7 +403,7 @@ conversacore/
 
 ---
 
-## 15. Build Order (Minimum Vertical Slice)
+## 17. Build Order (Minimum Vertical Slice)
 
 1. `/token`
 2. `/ws/talk`
@@ -391,7 +418,7 @@ Then swap fake providers for real Pipecat-integrated ones.
 
 ---
 
-## 16. Tech Stack Summary
+## 18. Tech Stack Summary
 
 | Layer     | Technology                    |
 |----------|-------------------------------|
@@ -405,7 +432,7 @@ Then swap fake providers for real Pipecat-integrated ones.
 
 ---
 
-## 17. Next Steps
+## 19. Next Steps
 
 1. Create `voice-gateway/` and `frontend/` directories
 2. Implement Phase 0

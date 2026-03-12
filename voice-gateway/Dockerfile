@@ -10,6 +10,7 @@ COPY pyproject.toml .
 RUN uv pip install --system .
 
 COPY app ./app
+COPY assets ./assets
 
 EXPOSE 8000
 

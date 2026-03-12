@@ -1,8 +1,11 @@
+import asyncio
+import time
+
 import structlog
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.core.auth import verify_token
-from app.infra.metrics import concurrency_rejections_total, ws_connections_active
+from app.infra.metrics import concurrency_rejections_total, quota_rejections_total, ws_connections_active
 from app.pipeline.factory import create_pipeline
 from app.sessions.manager import SessionManager
 
@@ -41,10 +44,14 @@ async def websocket_handler(websocket: WebSocket):
     app = websocket.app
     manager: SessionManager = app.state.session_manager
     redis = app.state.redis
-    session = await manager.create_session(redis, user_id, websocket)
-    if not session:
-        concurrency_rejections_total.inc()
-        await websocket.close(code=4001, reason="policy_violation: concurrency_cap_exceeded")
+    session, reject_reason = await manager.create_session(redis, user_id, websocket)
+    if session is None:
+        if reject_reason == "quota":
+            quota_rejections_total.inc()
+            await websocket.close(code=4001, reason="policy_violation: quota_exceeded")
+        else:
+            concurrency_rejections_total.inc()
+            await websocket.close(code=4001, reason="policy_violation: concurrency_cap_exceeded")
         return
 
     ws_connections_active.inc()
@@ -54,7 +61,9 @@ async def websocket_handler(websocket: WebSocket):
             session_id=session.session_id,
             user_id=user_id,
         )
-        runner, task = create_pipeline(websocket)
+        # Mandatory 160ms throttle to prevent race conditions in session loop (spec)
+        await asyncio.get_running_loop().run_in_executor(None, time.sleep, 0.16)
+        runner, task = create_pipeline(websocket, usage_tracker=session.usage)
         await runner.run(task)
     except ValueError as e:
         log.error("pipeline_config_error", error=str(e))
