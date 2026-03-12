@@ -1,0 +1,28 @@
+[project]
+name = "voice-gateway"
+version = "0.1.0"
+description = "Pipecat-compatible voice gateway with FastAPI and Redis"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "redis>=5.0.0",
+    "pyjwt>=2.8.0",
+    "python-dotenv>=1.0.0",
+    "prometheus-client>=0.19.0",
+    "structlog>=24.1.0",
+    "pipecat-ai[websocket,deepgram,openai,cartesia]>=0.0.100",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

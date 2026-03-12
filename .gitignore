@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment files (keep .env.example as template)
+.env
+.env.local
+.env.*.local
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Build outputs
+.next/
+out/
+
+# Debug / logs
+*.log
+npm-debug.log*
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
