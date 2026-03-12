@@ -57,6 +57,9 @@ Implementation: wrapper around each Pipecat provider; track failures, open circu
 - **Redis** — Connection pooling; Lua scripts (`check_quota`, `admit_session`, `add_usage`) for atomic ops and fewer round-trips
 - **Admission path** — 1 round-trip for quota + 1 for concurrency; TTL on quota keys for auto-expiry
 
+## Demo
+https://drive.google.com/file/d/1W5UCFTM-MovfGGMOLFpABgHcF8jYrABQ/view?usp=sharing
+
 ## Configuration
 
 - `CONCURRENCY_CAP_PER_USER` — Max active calls per user (default 2)
