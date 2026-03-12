@@ -8,30 +8,20 @@ import {
   usePipecatClientTransportState,
 } from "@pipecat-ai/client-react";
 import { RTVIEvent, TransportStateEnum } from "@pipecat-ai/client-js";
-import type { TranscriptData, BotOutputData } from "@pipecat-ai/client-js";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient, getToken, getWsUrl } from "@/lib/pipecat";
-
-type TranscriptEntry = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  isPartial?: boolean;
-};
 
 function SpeakingBlob({
   isSpeaking,
   isUserSpeaking,
-  isListening,
   isConnected,
 }: {
   isSpeaking: boolean;
   isUserSpeaking: boolean;
-  isListening: boolean;
   isConnected: boolean;
 }) {
   const active = isSpeaking || isUserSpeaking;
-  const size = 320;
+  const size = 420;
 
   return (
     <div
@@ -40,15 +30,16 @@ function SpeakingBlob({
         height: size,
         minWidth: size,
         minHeight: size,
-        background:
-          "linear-gradient(135deg, #C08552 0%, #8C5A3C 40%, #4B2E2B 100%)",
+        background: "#8C5A3C",
         borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
         animation: active
           ? "blob-speaking 0.6s ease-in-out infinite, blob-pulse-subtle 0.8s ease-in-out infinite"
           : "blob-idle 8s ease-in-out infinite",
         transition: "opacity 0.3s",
         opacity: isConnected ? 1 : 0.5,
-        boxShadow: "0 0 60px rgba(192, 133, 82, 0.25)",
+        boxShadow: active
+          ? "0 0 80px rgba(140, 90, 60, 0.35)"
+          : "0 0 40px rgba(140, 90, 60, 0.2)",
       }}
     />
   );
@@ -72,114 +63,21 @@ function TalkUI() {
   const [status, setStatus] = useState<"idle" | "connecting" | "connected">("idle");
   const [isBotSpeaking, setIsBotSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
-  const lastUserPartialRef = useRef<string>("");
-  const expectNewBotMessageRef = useRef(true);
 
-  useRTVIClientEvent(
-    RTVIEvent.BotStartedSpeaking,
-    useCallback(() => setIsBotSpeaking(true), [])
-  );
-  useRTVIClientEvent(
-    RTVIEvent.BotStoppedSpeaking,
-    useCallback(() => {
-      setIsBotSpeaking(false);
-      expectNewBotMessageRef.current = true;
-    }, [])
-  );
-  useRTVIClientEvent(
-    RTVIEvent.UserStartedSpeaking,
-    useCallback(() => setIsUserSpeaking(true), [])
-  );
-  useRTVIClientEvent(
-    RTVIEvent.UserStoppedSpeaking,
-    useCallback(() => setIsUserSpeaking(false), [])
-  );
-  useRTVIClientEvent(
-    RTVIEvent.BotReady,
-    useCallback(() => setStatus("connected"), [])
-  );
+  useRTVIClientEvent(RTVIEvent.BotStartedSpeaking, useCallback(() => setIsBotSpeaking(true), []));
+  useRTVIClientEvent(RTVIEvent.BotStoppedSpeaking, useCallback(() => setIsBotSpeaking(false), []));
+  useRTVIClientEvent(RTVIEvent.UserStartedSpeaking, useCallback(() => setIsUserSpeaking(true), []));
+  useRTVIClientEvent(RTVIEvent.UserStoppedSpeaking, useCallback(() => setIsUserSpeaking(false), []));
+  useRTVIClientEvent(RTVIEvent.BotReady, useCallback(() => setStatus("connected"), []));
   useRTVIClientEvent(
     RTVIEvent.Disconnected,
     useCallback(() => {
       setStatus("idle");
       setIsBotSpeaking(false);
       setIsUserSpeaking(false);
-      expectNewBotMessageRef.current = true;
     }, [])
   );
-
-  useRTVIClientEvent(
-    RTVIEvent.UserTranscript,
-    useCallback((data: TranscriptData) => {
-      if (data.final) {
-        if (data.text.trim()) {
-          setTranscript((prev) => [
-            ...prev.filter((e) => !(e.role === "user" && e.isPartial)),
-            {
-              id: `u-${Date.now()}`,
-              role: "user",
-              text: data.text.trim(),
-              isPartial: false,
-            },
-          ]);
-        }
-        lastUserPartialRef.current = "";
-      } else {
-        lastUserPartialRef.current = data.text;
-        setTranscript((prev) => {
-          const without = prev.filter((e) => !(e.role === "user" && e.isPartial));
-          if (!data.text.trim()) return without;
-          return [
-            ...without,
-            {
-              id: "user-partial",
-              role: "user",
-              text: data.text,
-              isPartial: true,
-            },
-          ];
-        });
-      }
-    }, [])
-  );
-
-  useRTVIClientEvent(
-    RTVIEvent.BotOutput,
-    useCallback((data: BotOutputData) => {
-      if (!data.text) return;
-      setTranscript((prev) => {
-        const last = prev[prev.length - 1];
-        const shouldAppend =
-          !expectNewBotMessageRef.current &&
-          last?.role === "assistant";
-        if (shouldAppend) {
-          expectNewBotMessageRef.current = false;
-          return [
-            ...prev.slice(0, -1),
-            { ...last, text: last.text + data.text },
-          ];
-        }
-        expectNewBotMessageRef.current = false;
-        return [
-          ...prev,
-          {
-            id: `b-${Date.now()}`,
-            role: "assistant",
-            text: data.text,
-            isPartial: false,
-          },
-        ];
-      });
-    }, [])
-  );
-
-
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
 
   useEffect(() => {
     if (
@@ -229,230 +127,87 @@ function TalkUI() {
         minHeight: "100dvh",
         display: "flex",
         flexDirection: "column",
-        background: "var(--cream)",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#FDF9F5",
+        padding: 24,
       }}
     >
-      {/* Minimal header */}
-      <header
+      <div
+        onClick={status === "idle" ? connect : undefined}
+        role={status === "idle" ? "button" : undefined}
+        onKeyDown={(e) => status === "idle" && e.key === "Enter" && connect()}
+        style={{ cursor: status === "idle" ? "pointer" : "default" }}
+      >
+        <SpeakingBlob
+          isSpeaking={isBotSpeaking}
+          isUserSpeaking={isUserSpeaking}
+          isConnected={isConnected}
+        />
+      </div>
+      <p
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 20px",
-          paddingTop: "max(12px, env(safe-area-inset-top))",
-          borderBottom: "1px solid rgba(75, 46, 43, 0.08)",
+          marginTop: 24,
+          fontSize: 16,
+          color: "#8C5A3C",
+          fontWeight: 600,
         }}
       >
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "1px solid rgba(75, 46, 43, 0.15)",
-            background: "transparent",
-            color: "var(--dark)",
-            fontSize: 16,
-            cursor: "pointer",
-          }}
-        >
-          ←
-        </button>
-        <span
-          style={{
-            fontSize: 14,
-            fontWeight: 500,
-            color: "var(--dark)",
-          }}
-        >
-          ConversaCore
-        </span>
-        <button
-          type="button"
-          onClick={isConnected ? disconnect : connect}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "1px solid rgba(75, 46, 43, 0.15)",
-            background: "transparent",
-            color: "var(--dark)",
-            cursor: "pointer",
-            fontSize: 16,
-          }}
-        >
-          ↻
-        </button>
-      </header>
-
-      {/* Main: blob left, transcript right */}
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "row",
-          overflow: "hidden",
-          minHeight: 0,
-        }}
-      >
-        {/* Left: blob */}
-        <div
-          style={{
-            flex: "0 0 auto",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 32,
-            minWidth: 200,
-          }}
-        >
-          <div
-            onClick={status === "idle" ? connect : undefined}
-            role={status === "idle" ? "button" : undefined}
-            onKeyDown={(e) => status === "idle" && e.key === "Enter" && connect()}
-            style={{ cursor: status === "idle" ? "pointer" : "default" }}
-          >
-            <SpeakingBlob
-              isSpeaking={isBotSpeaking}
-              isUserSpeaking={isUserSpeaking}
-              isListening={isConnected && !isBotSpeaking && !isUserSpeaking}
-              isConnected={isConnected}
-            />
-          </div>
-          <p
+        {statusText}
+      </p>
+      <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
+        {status === "idle" && (
+          <button
+            onClick={connect}
             style={{
-              marginTop: 16,
-              fontSize: 14,
-              color: "var(--text-muted)",
-              fontWeight: 500,
+              padding: "14px 32px",
+              background: "#8C5A3C",
+              color: "#fff",
+              border: "none",
+              borderRadius: 14,
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(140, 90, 60, 0.25)",
             }}
           >
-            {statusText}
-          </p>
-          {status === "idle" && (
-            <button
-              onClick={connect}
-              style={{
-                marginTop: 12,
-                padding: "10px 24px",
-                background: "var(--tan)",
-                color: "var(--cream)",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              Connect
-            </button>
-          )}
-        </div>
-
-        {/* Right: transcript */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            borderLeft: "1px solid rgba(75, 46, 43, 0.08)",
-            minWidth: 0,
-          }}
-        >
-          <div
+            Connect
+          </button>
+        )}
+        {isConnected && (
+          <button
+            onClick={disconnect}
             style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
+              padding: "14px 32px",
+              background: "#C53030",
+              color: "#fff",
+              border: "none",
+              borderRadius: 14,
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(197, 48, 48, 0.25)",
             }}
           >
-            {transcript.length === 0 && (
-              <p
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 14,
-                  margin: 0,
-                  fontStyle: "italic",
-                }}
-              >
-                Transcript will appear here as you talk.
-              </p>
-            )}
-            {transcript.map((entry) => (
-              <div
-                key={entry.id}
-                style={{
-                  alignSelf: entry.role === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "85%",
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background:
-                    entry.role === "user"
-                      ? "var(--brown)"
-                      : "rgba(192, 133, 82, 0.15)",
-                  color: entry.role === "user" ? "var(--cream)" : "var(--dark)",
-                  fontSize: 14,
-                  lineHeight: 1.5,
-                  opacity: entry.isPartial ? 0.85 : 1,
-                }}
-              >
-                {entry.text}
-              </div>
-            ))}
-            <div ref={transcriptEndRef} />
-          </div>
-
-          {/* Bottom controls */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 24,
-              padding: 16,
-              borderTop: "1px solid rgba(75, 46, 43, 0.08)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={isConnected ? disconnect : connect}
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: "50%",
-                border: "none",
-                background: isConnected ? "var(--brown)" : "var(--tan)",
-                color: "var(--cream)",
-                cursor: "pointer",
-                fontSize: 22,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              🎤
-            </button>
-          </div>
-        </div>
-      </main>
+            End session
+          </button>
+        )}
+      </div>
 
       {error && (
-        <div
+        <p
           style={{
-            padding: "8px 20px",
-            background: "rgba(197, 48, 48, 0.1)",
-            color: "var(--error)",
+            marginTop: 16,
+            padding: "12px 20px",
+            background: "#FEE2E2",
+            color: "#C53030",
             fontSize: 14,
-            textAlign: "center",
+            borderRadius: 12,
+            fontWeight: 500,
           }}
         >
           {error}
-        </div>
+        </p>
       )}
 
       <PipecatClientAudio />
@@ -482,13 +237,13 @@ export default function Page() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "var(--cream)",
-          color: "var(--error)",
+          background: "#FDF9F5",
+          color: "#C53030",
           padding: 24,
         }}
       >
         <p>{initError}</p>
-        <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 8 }}>
+        <p style={{ fontSize: 14, color: "#8C5A3C", marginTop: 8 }}>
           Try refreshing the page.
         </p>
       </div>
@@ -503,8 +258,8 @@ export default function Page() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "var(--cream)",
-          color: "var(--text-muted)",
+          background: "#FDF9F5",
+          color: "#8C5A3C",
         }}
       >
         Loading…
