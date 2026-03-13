@@ -1,4 +1,4 @@
-.PHONY: up down build test dev
+.PHONY: up down build dev
 
 up:
 	docker compose up --build -d
@@ -11,6 +11,3 @@ build:
 
 dev:
 	cd voice-gateway && uv run uvicorn app.main:app --reload --port 8000
-
-test:
-	cd voice-gateway && uv run pytest tests/ -v
